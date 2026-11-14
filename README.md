@@ -78,23 +78,24 @@ The screenshot below is a local Chromium verification capture of the regional mi
 
 ![Verified Jezero CTX mission with Curiosity rover, route overlay, and elevation profile](verification/jezero-astar-mission.png)
 
-<details>
-<summary>Additional TAREEQ screenshots and NASA team profile</summary>
+## Project screenshot gallery
 
-The following team-provided screenshots document the global map, measurement tools, layer controls, and route-planning interface. The route-comparison screenshots are intermediate UI captures; the verified Jezero mission scene above and the coverage report describe the current release state.
+These team-provided screenshots document the global map, measurement tools, layer controls, route-planning interface, and the TAREEQ team page. The route-comparison screenshots are intermediate UI captures; the verified Jezero mission scene above and the coverage report describe the current release state.
 
 ### Global 3D and 2D views
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/screenshots/mars-global-3d-overview.png" alt="Global Mars 3D overview" width="100%"></td>
-    <td width="33%"><img src="docs/screenshots/mars-global-3d-layers.png" alt="Global Mars 3D view with map layers" width="100%"></td>
-    <td width="33%"><img src="docs/screenshots/mars-globe-view.png" alt="Mars globe view" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/mars-global-3d-overview.png" alt="Global Mars 3D overview" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/mars-global-3d-layers.png" alt="Global Mars 3D view with map layers" width="100%"></td>
   </tr>
   <tr>
-    <td width="33%"><img src="docs/screenshots/mars-global-2d-view.png" alt="Global Mars 2D map" width="100%"></td>
-    <td width="33%"><img src="docs/screenshots/mars-distance-measurement.png" alt="Mars map distance measurement" width="100%"></td>
-    <td width="33%"><img src="docs/screenshots/mars-distance-tool-active.png" alt="Distance measurement tool active on the map" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/mars-globe-view.png" alt="Mars globe view" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/mars-global-2d-view.png" alt="Global Mars 2D map" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/mars-distance-measurement.png" alt="Mars map distance measurement" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/mars-distance-tool-active.png" alt="Distance measurement tool active on the map" width="100%"></td>
   </tr>
 </table>
 
@@ -112,9 +113,12 @@ The following team-provided screenshots document the global map, measurement too
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/screenshots/route-planning-astar.png" alt="A-star route planning screenshot" width="100%"></td>
-    <td width="33%"><img src="docs/screenshots/route-planning-ucs.png" alt="Uniform-cost route planning screenshot" width="100%"></td>
-    <td width="33%"><img src="docs/screenshots/route-planning-greedy.png" alt="Greedy best-first route planning screenshot" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/route-planning-astar.png" alt="A-star route planning screenshot" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/route-planning-ucs.png" alt="Uniform-cost route planning screenshot" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/route-planning-greedy.png" alt="Greedy best-first route planning screenshot" width="100%"></td>
+    <td width="50%"></td>
   </tr>
 </table>
 
@@ -123,8 +127,6 @@ The following team-provided screenshots document the global map, measurement too
 [Open TAREEQ's team profile on NASA Space Apps Challenge 2026](https://www.spaceappschallenge.org/2026/find-a-team/tareeq/).
 
 ![TAREEQ team profile on NASA Space Apps Challenge](docs/screenshots/nasa-space-apps-team-profile.png)
-
-</details>
 
 ## Data and credits
 
