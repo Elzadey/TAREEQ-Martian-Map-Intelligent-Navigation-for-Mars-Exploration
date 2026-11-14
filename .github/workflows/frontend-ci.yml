@@ -23,6 +23,10 @@ jobs:
       - run: npm test -- --watchAll=false
       - run: npm run build
       - name: Validate Docker Compose
+        env:
+          DATABASE_PASSWORD: ci-validation-placeholder
+          JWT_SECRET_KEY: ci-validation-placeholder
+          GRAFANA_ADMIN_PASSWORD: ci-validation-placeholder
         run: docker compose -f ../docker/compose/docker-compose.yml config --quiet
       - name: Build frontend production image
         run: docker build --target production -f ../docker/frontend/Dockerfile .
