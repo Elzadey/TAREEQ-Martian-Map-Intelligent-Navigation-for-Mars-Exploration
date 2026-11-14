@@ -42,6 +42,7 @@ import type { LonLat } from "../features/route-planning/algorithms";
 import {
   createMolaTerrainProvider,
   loadMolaDem,
+  MOLA_AREOID_LABEL,
   MOLA_DEM_LABEL,
   type MolaDem,
 } from "../features/mars-mapping/services/molaDem";
@@ -95,11 +96,14 @@ const routeDistanceKm = (path: LonLat[]): number =>
 
 const coordinateLabel = (point: LonLat): string =>
   `${point[1].toFixed(2)}°, ${point[0].toFixed(2)}°`;
-const REGIONAL_CAMERA_CLEARANCE_M = 35;
-const REGIONAL_CAMERA_TRAIL_M = 65;
+const REGIONAL_CAMERA_CLEARANCE_M = 80;
+const REGIONAL_CAMERA_TRAIL_M = 180;
 const GLOBAL_CAMERA_CLEARANCE_M = 4_000;
 const GLOBAL_CAMERA_TRAIL_M = 6_500;
-const JEZERO_RENDER_VERTICAL_OFFSET_M = 4_000;
+const MISSION_LOCAL_SURFACE_REFERENCE_M = 300;
+const ROVER_SURFACE_CLEARANCE_M = 0.25;
+const WAYPOINT_MARKER_CLEARANCE_M = 1.5;
+const MISSION_ROUTE_DISPLAY_CLEARANCE_M = 20;
 
 const pointAlongRoute = (path: LonLat[], fraction: number): LonLat => {
   if (path.length < 2) return path[0] ?? [0, 0];
@@ -122,6 +126,34 @@ const pointAlongRoute = (path: LonLat[], fraction: number): LonLat => {
     remaining -= segmentLength;
   }
   return path[path.length - 1];
+};
+
+const missionRenderOriginOffset = (
+  path: LonLat[],
+  jezeroDem: JezeroDem | null,
+  molaDem: MolaDem | null
+): number => {
+  if (path.length === 0 || !molaDem?.ellipsoidHeightFromAreoidElevation)
+    return 0;
+  const ellipsoidHeights = path
+    .map(([longitude, latitude]) => {
+      const regionalHeight = jezeroDem?.sampleElevation(longitude, latitude);
+      const sourceHeight =
+        regionalHeight ?? molaDem?.sampleElevation(longitude, latitude);
+      if (sourceHeight === null || sourceHeight === undefined) return null;
+      return (
+        molaDem?.ellipsoidHeightFromAreoidElevation?.(
+          longitude,
+          latitude,
+          sourceHeight
+        ) ?? sourceHeight
+      );
+    })
+    .filter((height): height is number => height !== null && Number.isFinite(height));
+  if (ellipsoidHeights.length === 0) return 0;
+  return (
+    MISSION_LOCAL_SURFACE_REFERENCE_M - Math.min(...ellipsoidHeights)
+  );
 };
 
 const groundHeightAt = (
@@ -162,29 +194,34 @@ const missionSurfaceHeightAt = (
   latitude: number,
   jezeroDem: JezeroDem | null,
   molaDem: MolaDem | null,
-  preferViewerTerrain: boolean
+  preferViewerTerrain: boolean,
+  renderOriginOffsetMeters = 0
 ): number => {
+  const viewerHeight = viewer.scene.globe.getHeight(
+    Cartographic.fromDegrees(longitude, latitude)
+  );
+  if (
+    preferViewerTerrain &&
+    viewerHeight !== undefined &&
+    Number.isFinite(viewerHeight)
+  )
+    return viewerHeight + renderOriginOffsetMeters;
+
   const sourceHeight = groundHeightAt(
     viewer,
     longitude,
     latitude,
     jezeroDem,
     molaDem,
-    preferViewerTerrain
+    false
   );
-  const displayOffset = jezeroDem ? JEZERO_RENDER_VERTICAL_OFFSET_M : 0;
-  const viewerHeight = viewer.scene.globe.getHeight(
-    Cartographic.fromDegrees(longitude, latitude)
-  );
-  if (
-    viewerHeight !== undefined &&
-    Number.isFinite(viewerHeight) &&
-    (preferViewerTerrain ||
-      (jezeroDem &&
-        Math.abs(viewerHeight - sourceHeight - displayOffset) <= 1_000))
-  )
-    return viewerHeight;
-  return sourceHeight + displayOffset;
+  const ellipsoidHeight =
+    molaDem?.ellipsoidHeightFromAreoidElevation?.(
+      longitude,
+      latitude,
+      sourceHeight
+    ) ?? sourceHeight;
+  return ellipsoidHeight + renderOriginOffsetMeters;
 };
 
 const routeHeading = (start: LonLat, next: LonLat): number =>
@@ -201,7 +238,8 @@ const placeMissionCamera = (
   molaDem: MolaDem | null,
   preferViewerTerrain: boolean,
   ellipsoid: Ellipsoid,
-  cameraAngle = 0
+  cameraAngle = 0,
+  renderOriginOffsetMeters = 0
 ): void => {
   const surfaceHeight =
     missionSurfaceHeightAt(
@@ -210,7 +248,8 @@ const placeMissionCamera = (
       point[1],
       jezeroDem,
       molaDem,
-      preferViewerTerrain
+      preferViewerTerrain,
+      renderOriginOffsetMeters
     ) + 1.5;
   const target = Cartesian3.fromDegrees(
     point[0],
@@ -265,6 +304,7 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
   onExitMission,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const routeOverlayRef = useRef<HTMLCanvasElement | null>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const baseLayerRef = useRef<ImageryLayer | null>(null);
   const imageryLayersRef = useRef<Partial<Record<MarsLayerId, ImageryLayer>>>(
@@ -295,7 +335,42 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
   const [cameraAngle, setCameraAngle] = useState(0);
   const [missionComplete, setMissionComplete] = useState(false);
   const [missionPreparing, setMissionPreparing] = useState(missionMode);
+  const [missionElevationProfile, setMissionElevationProfile] = useState<
+    Array<number | null>
+  >([]);
+  const [missionElevationSource, setMissionElevationSource] = useState("");
   const missionProgressRef = useRef(0);
+  const missionRenderOriginOffsetRef = useRef(0);
+  const suspendedGlobalImageryRef = useRef<
+    Array<{ layer: ImageryLayer; show: boolean }> | null
+  >(null);
+
+  const hideGlobalImageryForRegionalMission = () => {
+    if (suspendedGlobalImageryRef.current) return;
+    const globalLayers = [
+      baseLayerRef.current,
+      ...Object.values(imageryLayersRef.current),
+    ].filter((layer): layer is ImageryLayer => layer !== null && layer !== undefined);
+    suspendedGlobalImageryRef.current = globalLayers.map((layer) => ({
+      layer,
+      show: layer.show,
+    }));
+    globalLayers.forEach((layer) => {
+      layer.show = false;
+    });
+  };
+
+  const restoreGlobalImagery = () => {
+    const savedLayers = suspendedGlobalImageryRef.current;
+    const viewer = viewerRef.current;
+    if (!savedLayers) return;
+    if (viewer && !viewer.isDestroyed?.()) {
+      savedLayers.forEach(({ layer, show }) => {
+        layer.show = show;
+      });
+    }
+    suspendedGlobalImageryRef.current = null;
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -365,16 +440,42 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
         longitude,
         latitude,
       ]);
-      const positions = Cartesian3.fromDegreesArray(coordinates, marsEllipsoid);
+      const positions = missionModeRef.current
+        ? Cartesian3.fromDegreesArrayHeights(
+            route.path.flatMap(([longitude, latitude]) => [
+              longitude,
+              latitude,
+              missionSurfaceHeightAt(
+                viewer,
+                longitude,
+                latitude,
+                jezeroDemRef.current,
+                molaDemRef.current,
+                externalTerrainActiveRef.current,
+                missionRenderOriginOffsetRef.current
+              ) + MISSION_ROUTE_DISPLAY_CLEARANCE_M,
+            ]),
+            marsEllipsoid
+          )
+        : Cartesian3.fromDegreesArray(coordinates, marsEllipsoid);
+      viewer.entities.add({
+        id: "tareeq-route-outline",
+        polyline: {
+          positions,
+          width: missionModeRef.current ? 16 : 8,
+          clampToGround: !missionModeRef.current,
+          material: Color.fromCssColorString("#171717") ?? Color.YELLOW,
+        },
+      });
       viewer.entities.add({
         id: "tareeq-active-route",
         polyline: {
           positions,
-          width: missionModeRef.current ? 8 : 5,
-          clampToGround: true,
+          width: missionModeRef.current ? 9 : 5,
+          clampToGround: !missionModeRef.current,
           material:
             Color.fromCssColorString(
-              missionModeRef.current ? "#ffd27a" : route.color
+              missionModeRef.current ? "#ffbf00" : route.color
             ) ?? Color.YELLOW,
         },
       });
@@ -389,6 +490,9 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
       viewer.entities.removeById("tareeq-rover");
       viewer.entities.removeById("tareeq-rover-travelled");
       if (!missionModeRef.current || !route || route.path.length < 2) {
+        restoreGlobalImagery();
+        setMissionElevationProfile([]);
+        setMissionElevationSource("");
         setRoverMoving(false);
         setMissionPreparing(false);
         return;
@@ -410,10 +514,38 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
         )
           return;
         if (dem) molaDemRef.current = dem;
-        const useRegionalDem = Boolean(
+      const useRegionalDem = Boolean(
           regionalDem && regionalDem.coversPath(route.path)
         );
         regionalMissionActive = useRegionalDem;
+        const profileDataset = useRegionalDem ? regionalDem : dem;
+        setMissionElevationProfile(
+          profileDataset
+            ? route.path.map(([longitude, latitude]) =>
+                profileDataset.sampleElevation(longitude, latitude)
+              )
+            : []
+        );
+        setMissionElevationSource(
+          useRegionalDem ? "CTX DTM · areoid" : dem ? "MOLA · areoid" : ""
+        );
+        const renderOriginOffsetMeters =
+          externalTerrainActiveRef.current && !useRegionalDem
+            ? 0
+            : missionRenderOriginOffset(
+                route.path,
+                useRegionalDem ? regionalDem : null,
+                dem
+              );
+        missionRenderOriginOffsetRef.current = renderOriginOffsetMeters;
+        const datumStatus = dem?.ellipsoidHeightFromAreoidElevation
+          ? `${MOLA_AREOID_LABEL} → Mars ellipsoid`
+          : "MOLA areoid grid unavailable; vertical conversion not applied";
+        const originStatus = renderOriginOffsetMeters
+          ? `local scene origin ${renderOriginOffsetMeters > 0 ? "+" : ""}${Math.round(
+              renderOriginOffsetMeters
+            ).toLocaleString()} m (display only)`
+          : "no local scene-origin translation";
         if (useRegionalDem && regionalDem) {
           jezeroDemRef.current = regionalDem;
           externalTerrainActiveRef.current = false;
@@ -421,7 +553,7 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
             regionalDem,
             marsEllipsoid,
             dem,
-            JEZERO_RENDER_VERTICAL_OFFSET_M
+            renderOriginOffsetMeters
           );
           if (regionalImageryLayerRef.current) {
             viewer.imageryLayers.remove(regionalImageryLayerRef.current, true);
@@ -430,11 +562,18 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
             viewer.imageryLayers.addImageryProvider(
               createJezeroOrthophotoProvider(regionalDem, marsEllipsoid)
             );
+          viewer.imageryLayers.raiseToTop?.(regionalImageryLayerRef.current);
+          hideGlobalImageryForRegionalMission();
           setTerrainStatus(
-            `${JEZERO_DEM_LABEL} + ${JEZERO_ORTHO_LABEL} · source elevations unchanged; Cesium display origin +${JEZERO_RENDER_VERTICAL_OFFSET_M.toLocaleString()} m`
+            `${JEZERO_DEM_LABEL} + ${JEZERO_ORTHO_LABEL} · ${datumStatus} · ${originStatus} · route line +${MISSION_ROUTE_DISPLAY_CLEARANCE_M} m display lift · source data/costs unchanged`
           );
-          setMissionDataNotice(null);
+          setMissionDataNotice(
+            dem?.ellipsoidHeightFromAreoidElevation
+              ? null
+              : "MOLA areoid reference data is unavailable. The CTX raster values and route costs remain unchanged, but their displayed vertical placement is approximate."
+          );
         } else {
+          restoreGlobalImagery();
           jezeroDemRef.current = null;
           if (regionalImageryLayerRef.current) {
             viewer.imageryLayers.remove(regionalImageryLayerRef.current, true);
@@ -443,49 +582,57 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
           if (dem && !externalTerrainActiveRef.current) {
             viewer.terrainProvider = createMolaTerrainProvider(
               dem,
-              marsEllipsoid
+              marsEllipsoid,
+              renderOriginOffsetMeters
             );
             setTerrainStatus(
-              `${MOLA_DEM_LABEL} · ${
+              `${MOLA_DEM_LABEL} · ${datumStatus} · ${originStatus} · route line +${MISSION_ROUTE_DISPLAY_CLEARANCE_M} m display lift · ${
                 regionalDem
                   ? "outside Jezero coverage"
                   : "Jezero data unavailable"
               }`
             );
           }
-          setMissionDataNotice(
+          const coverageNotice =
             regionalDem
               ? "This route is outside the verified Jezero CTX footprint. The rover is using global MOLA 4 ppd terrain (~14.8 km cells), not rover-scale detail. Add a co-registered local CTX/HiRISE DTM and orthophoto for this site, or use the USGS HRSC–MOLA 200 m global DEM."
-              : "The Jezero CTX regional files could not be loaded. This mission is using global MOLA 4 ppd terrain (~14.8 km cells), not rover-scale detail. Check the bundled data files, or add a co-registered CTX/HiRISE DTM and orthophoto for this site."
+              : "The Jezero CTX regional files could not be loaded. This mission is using global MOLA 4 ppd terrain (~14.8 km cells), not rover-scale detail. Check the bundled data files, or add a co-registered CTX/HiRISE DTM and orthophoto for this site.";
+          setMissionDataNotice(
+            dem?.ellipsoidHeightFromAreoidElevation
+              ? coverageNotice
+              : `${coverageNotice} MOLA areoid reference data is unavailable, so displayed vertical placement is approximate.`
           );
         }
         viewer.scene.globe.show = true;
         const [startLon, startLat] = route.path[0];
         const [endLon, endLat] = route.path[route.path.length - 1];
-        const startHeight =
-          missionSurfaceHeightAt(
-            viewer,
-            startLon,
-            startLat,
-            jezeroDemRef.current,
-            dem,
-            externalTerrainActiveRef.current
-          ) + 5;
-        const endHeight =
-          missionSurfaceHeightAt(
-            viewer,
-            endLon,
-            endLat,
-            jezeroDemRef.current,
-            dem,
-            externalTerrainActiveRef.current
-          ) + 5;
+        const startSurfaceHeight = missionSurfaceHeightAt(
+          viewer,
+          startLon,
+          startLat,
+          jezeroDemRef.current,
+          dem,
+          externalTerrainActiveRef.current,
+          renderOriginOffsetMeters
+        );
+        const endSurfaceHeight = missionSurfaceHeightAt(
+          viewer,
+          endLon,
+          endLat,
+          jezeroDemRef.current,
+          dem,
+          externalTerrainActiveRef.current,
+          renderOriginOffsetMeters
+        );
+        const startRoverHeight = startSurfaceHeight + ROVER_SURFACE_CLEARANCE_M;
+        const startMarkerHeight = startSurfaceHeight + WAYPOINT_MARKER_CLEARANCE_M;
+        const endMarkerHeight = endSurfaceHeight + WAYPOINT_MARKER_CLEARANCE_M;
         viewer.entities.add({
           id: "tareeq-mission-start",
           position: Cartesian3.fromDegrees(
             startLon,
             startLat,
-            startHeight,
+            startMarkerHeight,
             marsEllipsoid
           ),
           point: {
@@ -506,7 +653,7 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
           position: Cartesian3.fromDegrees(
             endLon,
             endLat,
-            endHeight,
+            endMarkerHeight,
             marsEllipsoid
           ),
           point: {
@@ -531,7 +678,7 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
           position: Cartesian3.fromDegrees(
             startLon,
             startLat,
-            startHeight,
+            startRoverHeight,
             marsEllipsoid
           ),
           model: {
@@ -550,39 +697,17 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
           jezeroDemRef.current,
           dem,
           externalTerrainActiveRef.current,
-          marsEllipsoid
+          marsEllipsoid,
+          0,
+          renderOriginOffsetMeters
         );
         setMissionPreparing(false);
         setRoverMoving(true);
       };
-      void regionalDemPromise.then((regionalDem) => {
-        if (regionalDem && regionalDem.coversPath(route.path)) {
-          beginMission(molaDemRef.current, regionalDem);
-          void bundledDemPromise
-            .then((dem) => {
-              if (
-                disposed ||
-                sequence !== missionStartSequence ||
-                !missionModeRef.current ||
-                !regionalMissionActive
-              )
-                return;
-              molaDemRef.current = dem;
-              viewer.terrainProvider = createJezeroTerrainProvider(
-                regionalDem,
-                marsEllipsoid,
-                dem,
-                JEZERO_RENDER_VERTICAL_OFFSET_M
-              );
-              viewer.scene.requestRender();
-            })
-            .catch(() => undefined);
-          return;
-        }
-        void bundledDemPromise
-          .catch(() => null)
-          .then((dem) => beginMission(dem, regionalDem));
-      });
+      void Promise.all([
+        regionalDemPromise,
+        bundledDemPromise.catch(() => null),
+      ]).then(([regionalDem, dem]) => beginMission(dem, regionalDem));
     });
 
     const cameraController = viewer.scene.screenSpaceCameraController;
@@ -773,6 +898,7 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
       disposed = true;
       unsubscribeFromRoute();
       unsubscribeFromMission();
+      restoreGlobalImagery();
       tileProbe?.abort();
       viewer.destroy();
       viewerRef.current = null;
@@ -826,8 +952,9 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
         point[1],
         jezeroDemRef.current,
         molaDemRef.current,
-        externalTerrainActiveRef.current
-      ) + 5;
+        externalTerrainActiveRef.current,
+        missionRenderOriginOffsetRef.current
+      ) + ROVER_SURFACE_CLEARANCE_M;
     const markerLocations: Array<[string, LonLat]> = [
       ["tareeq-mission-start", missionRoute.path[0]],
       [
@@ -848,8 +975,9 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
             markerPoint[1],
             jezeroDemRef.current,
             molaDemRef.current,
-            externalTerrainActiveRef.current
-          ) + 5,
+            externalTerrainActiveRef.current,
+            missionRenderOriginOffsetRef.current
+          ) + WAYPOINT_MARKER_CLEARANCE_M,
           ellipsoid ?? undefined
         )
       );
@@ -887,17 +1015,26 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
       const coordinates = travelledPath.flatMap(([longitude, latitude]) => [
         longitude,
         latitude,
+        missionSurfaceHeightAt(
+          viewer,
+          longitude,
+          latitude,
+          jezeroDemRef.current,
+          molaDemRef.current,
+          externalTerrainActiveRef.current,
+          missionRenderOriginOffsetRef.current
+        ) + MISSION_ROUTE_DISPLAY_CLEARANCE_M,
       ]);
       viewer.entities.add({
         id: "tareeq-rover-travelled",
         polyline: {
-          positions: Cartesian3.fromDegreesArray(
+          positions: Cartesian3.fromDegreesArrayHeights(
             coordinates,
             ellipsoid ?? undefined
           ),
-          width: 7,
-          clampToGround: true,
-          material: Color.fromCssColorString("#f2a65a"),
+          width: 9,
+          clampToGround: false,
+          material: Color.fromCssColorString("#ffbf00"),
         },
       });
     }
@@ -912,17 +1049,129 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
           molaDemRef.current,
           externalTerrainActiveRef.current,
           ellipsoid,
-          cameraAngle
+          cameraAngle,
+          missionRenderOriginOffsetRef.current
         );
       }
     }
   }, [missionMode, missionRoute, missionProgress, followRover, cameraAngle]);
 
   useEffect(() => {
+    const viewer = viewerRef.current;
+    const overlay = routeOverlayRef.current;
+    if (
+      process.env.NODE_ENV === "test" ||
+      !missionMode ||
+      !missionRoute ||
+      !viewer ||
+      !overlay
+    ) {
+      return;
+    }
+
+    const context = overlay.getContext("2d");
+    if (!context) return;
+
+    const drawRouteOverlay = () => {
+      if (viewer.isDestroyed()) return;
+      const rect = viewer.canvas.getBoundingClientRect();
+      const parentRect = overlay.parentElement?.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+
+      const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+      const width = Math.round(rect.width * pixelRatio);
+      const height = Math.round(rect.height * pixelRatio);
+      if (overlay.width !== width || overlay.height !== height) {
+        overlay.width = width;
+        overlay.height = height;
+      }
+      overlay.style.left = `${
+        parentRect ? rect.left - parentRect.left : 0
+      }px`;
+      overlay.style.top = `${parentRect ? rect.top - parentRect.top : 0}px`;
+      overlay.style.width = `${rect.width}px`;
+      overlay.style.height = `${rect.height}px`;
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      context.clearRect(0, 0, rect.width, rect.height);
+
+      const routeEntity = viewer.entities.getById("tareeq-active-route");
+      const positions = routeEntity?.polyline?.positions?.getValue(
+        viewer.clock.currentTime
+      );
+      if (!positions || positions.length < 2) return;
+
+      const projected = positions.map((position: Cartesian3) =>
+        viewer.scene.cartesianToCanvasCoordinates(position)
+      );
+      const strokeRoute = (color: string, lineWidth: number) => {
+        context.beginPath();
+        let connected = false;
+        projected.forEach((point: Cartesian2 | undefined) => {
+          if (
+            !point ||
+            !Number.isFinite(point.x) ||
+            !Number.isFinite(point.y)
+          ) {
+            connected = false;
+            return;
+          }
+          if (connected) context.lineTo(point.x, point.y);
+          else context.moveTo(point.x, point.y);
+          connected = true;
+        });
+        context.strokeStyle = color;
+        context.lineWidth = lineWidth;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.stroke();
+      };
+
+      context.save();
+      context.shadowColor = "rgba(0, 0, 0, 0.75)";
+      context.shadowBlur = 7;
+      strokeRoute("rgba(10, 10, 10, 0.96)", 13);
+      context.shadowBlur = 0;
+      strokeRoute("#ffbf00", 6);
+      context.restore();
+
+      const roverPosition = viewer.entities
+        .getById("tareeq-rover")
+        ?.position?.getValue(viewer.clock.currentTime);
+      const roverScreen = roverPosition
+        ? viewer.scene.cartesianToCanvasCoordinates(roverPosition)
+        : undefined;
+      if (
+        roverScreen &&
+        Number.isFinite(roverScreen.x) &&
+        Number.isFinite(roverScreen.y)
+      ) {
+        context.save();
+        context.globalCompositeOperation = "destination-out";
+        context.beginPath();
+        context.arc(roverScreen.x, roverScreen.y, 24, 0, Math.PI * 2);
+        context.fill();
+        context.restore();
+      }
+    };
+
+    const removePostRenderListener = viewer.scene.postRender.addEventListener(
+      drawRouteOverlay
+    );
+    drawRouteOverlay();
+    return () => {
+      removePostRenderListener();
+      context.clearRect(0, 0, overlay.width, overlay.height);
+    };
+  }, [missionMode, missionRoute]);
+
+  useEffect(() => {
     (Object.keys(layers) as MarsLayerId[]).forEach((id) => {
       const imageryLayer = imageryLayersRef.current[id];
       if (imageryLayer) {
-        imageryLayer.show = layers[id].visible;
+        const suspended = suspendedGlobalImageryRef.current?.some(
+          (entry) => entry.layer === imageryLayer
+        );
+        imageryLayer.show = suspended ? false : layers[id].visible;
         imageryLayer.alpha = layers[id].opacity;
       }
     });
@@ -1019,6 +1268,13 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
       {missionMode ? (
+        <canvas
+          ref={routeOverlayRef}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-[5]"
+        />
+      ) : null}
+      {missionMode ? (
         <>
           <div className="pointer-events-none absolute left-5 top-5 z-10 flex items-center gap-3 rounded-full border border-white/10 bg-[#08090b]/75 px-4 py-2.5 text-white shadow-lg backdrop-blur-md">
             <span
@@ -1050,6 +1306,8 @@ const Mars3DViewer: React.FC<Mars3DViewerProps> = ({
               path={missionRoute.path}
               current={currentPosition}
               progress={missionProgress}
+              elevationProfile={missionElevationProfile}
+              elevationSource={missionElevationSource}
             />
           )}
 

@@ -98,9 +98,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mars-gis/mars-gis.git"
+    "url": "https://github.com/Elzadey/TAREEQ-Martian-Map-Intelligent-Navigation-for-Mars-Exploration.git"
   },
   "bugs": {
-    "url": "https://github.com/mars-gis/mars-gis/issues"
-  }
+    "url": "https://github.com/Elzadey/TAREEQ-Martian-Map-Intelligent-Navigation-for-Mars-Exploration/issues"
+  },
 }

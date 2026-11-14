@@ -99,7 +99,7 @@ describe("verified Jezero CTX terrain pair", () => {
     ).not.toBeNull();
   });
 
-  it("builds terrain tiles with original DTM elevations and the matching georeferenced orthophoto", () => {
+  it("builds terrain tiles from the regional DTM and matching georeferenced orthophoto", () => {
     const { dem } = loadVerifiedJezeroDem();
     const ellipsoid = {} as import("cesium").Ellipsoid;
     const latitude = (dem.bounds.south + dem.bounds.north) / 2;
@@ -150,7 +150,7 @@ describe("verified Jezero CTX terrain pair", () => {
     );
   });
 
-  it("keeps source elevations unchanged while shifting Cesium terrain only for display", () => {
+  it("leaves source CTX samples unchanged when no vertical datum model is supplied", () => {
     const { dem } = loadVerifiedJezeroDem();
     const ellipsoid = {} as import("cesium").Ellipsoid;
     const latitude = (dem.bounds.south + dem.bounds.north) / 2;
@@ -163,7 +163,7 @@ describe("verified Jezero CTX terrain pair", () => {
       north: ((latitude + halfSpan) * Math.PI) / 180,
     };
 
-    createJezeroTerrainProvider(dem, ellipsoid, null, 4_000);
+    createJezeroTerrainProvider(dem, ellipsoid);
     const options = cesiumMock.CustomHeightmapTerrainProvider.mock
       .calls[0][0] as {
       callback: (x: number, y: number, level: number) => Float32Array;
@@ -172,13 +172,59 @@ describe("verified Jezero CTX terrain pair", () => {
     const renderedHeights = options.callback(0, 0, 0);
 
     expect(renderedHeights[32 * 65 + 32]).toBeCloseTo(
-      (sourceElevation ?? 0) + 4_000,
+      sourceElevation ?? 0,
       1
     );
     expect(dem.sampleElevation(longitude, latitude)).toBeCloseTo(
       sourceElevation ?? 0,
       1
     );
+  });
+
+  it("converts CTX areoid heights for the Cesium mesh and applies a render-only origin", () => {
+    const { dem } = loadVerifiedJezeroDem();
+    const ellipsoid = {} as import("cesium").Ellipsoid;
+    const latitude = (dem.bounds.south + dem.bounds.north) / 2;
+    const longitude = (dem.bounds.west + dem.bounds.east) / 2;
+    const halfSpan = 0.005;
+    cesiumMock.__testState.tileRectangle = {
+      west: ((longitude - halfSpan) * Math.PI) / 180,
+      south: ((latitude - halfSpan) * Math.PI) / 180,
+      east: ((longitude + halfSpan) * Math.PI) / 180,
+      north: ((latitude + halfSpan) * Math.PI) / 180,
+    };
+    const verticalDatum = {
+      sampleElevation: jest.fn(() => 0),
+      ellipsoidHeightFromAreoidElevation: jest.fn(
+        (_longitude: number, _latitude: number, elevation: number) =>
+          elevation + 327
+      ),
+    };
+
+    createJezeroTerrainProvider(dem, ellipsoid, verticalDatum, 2_580);
+    const options = cesiumMock.CustomHeightmapTerrainProvider.mock
+      .calls[0][0] as {
+      callback: (x: number, y: number, level: number) => Float32Array;
+    };
+    const sourceElevation = dem.sampleElevation(longitude, latitude) ?? 0;
+    const renderedHeights = options.callback(0, 0, 0);
+
+    expect(renderedHeights[32 * 65 + 32]).toBeCloseTo(
+      sourceElevation + 327 + 2_580,
+      1
+    );
+    expect(dem.sampleElevation(longitude, latitude)).toBeCloseTo(
+      sourceElevation,
+      1
+    );
+    const centerDatumCall =
+      verticalDatum.ellipsoidHeightFromAreoidElevation.mock.calls.find(
+        ([sampleLongitude, sampleLatitude]) =>
+          Math.abs(sampleLongitude - longitude) < 1e-9 &&
+          Math.abs(sampleLatitude - latitude) < 1e-9
+      );
+    expect(centerDatumCall).toBeDefined();
+    expect(centerDatumCall?.[2]).toBeCloseTo(sourceElevation, 1);
   });
 
   it("plans within the actual regional footprint using the decoded CTX heights", () => {

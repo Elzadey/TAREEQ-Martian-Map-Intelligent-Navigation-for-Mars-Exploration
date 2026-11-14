@@ -318,7 +318,7 @@ export function createJezeroTerrainProvider(
   dem: JezeroDem,
   ellipsoid: Ellipsoid,
   fallbackDem: MolaDem | null = null,
-  verticalDisplayOffsetMeters = 0
+  renderOriginOffsetMeters = 0
 ): CustomHeightmapTerrainProvider {
   const tilingScheme = new GeographicTilingScheme({ ellipsoid });
   return new CustomHeightmapTerrainProvider({
@@ -348,11 +348,16 @@ export function createJezeroTerrainProvider(
             regionalHeight ??
             fallbackDem?.sampleElevation(longitude, latitude) ??
             0;
-          // This constant translation is for rendering only; decoded/source DEM values stay unchanged.
-          const height = sourceHeight + verticalDisplayOffsetMeters;
-          // Cesium reads Float32 heightmap samples directly as metre values.
-          // The 256 multiplier applies only to byte-packed heightmaps.
-          samples[row * TERRAIN_TILE_SIZE + column] = height;
+          const ellipsoidHeight =
+            fallbackDem?.ellipsoidHeightFromAreoidElevation?.(
+              longitude,
+              latitude,
+              sourceHeight
+            ) ?? sourceHeight;
+          // Source CTX/MOLA elevations stay untouched; only the Cesium terrain
+          // coordinates receive the datum conversion and optional local origin.
+          samples[row * TERRAIN_TILE_SIZE + column] =
+            ellipsoidHeight + renderOriginOffsetMeters;
         }
       }
       return samples;

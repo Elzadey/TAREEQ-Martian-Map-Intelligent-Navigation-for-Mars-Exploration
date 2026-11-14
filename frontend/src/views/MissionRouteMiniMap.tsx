@@ -5,6 +5,8 @@ interface MissionRouteMiniMapProps {
   path: LonLat[];
   current: LonLat;
   progress: number;
+  elevationProfile?: Array<number | null>;
+  elevationSource?: string;
 }
 
 type MapPoint = { x: number; y: number };
@@ -12,6 +14,7 @@ type MapPoint = { x: number; y: number };
 const MAP_WIDTH = 188;
 const MAP_HEIGHT = 112;
 const MAP_PADDING = 12;
+const PROFILE_HEIGHT = 48;
 
 const unwrapLongitude = (longitude: number, reference: number): number => {
   let unwrapped = longitude;
@@ -29,6 +32,8 @@ const MissionRouteMiniMap: React.FC<MissionRouteMiniMapProps> = ({
   path,
   current,
   progress,
+  elevationProfile = [],
+  elevationSource = "",
 }) => {
   const map = useMemo(() => {
     if (path.length === 0) return null;
@@ -88,6 +93,67 @@ const MissionRouteMiniMap: React.FC<MissionRouteMiniMapProps> = ({
       percent: Math.round(normalizedProgress * 100),
     };
   }, [current, path, progress]);
+
+  const elevation = useMemo(() => {
+    const valid = elevationProfile.filter(
+      (value): value is number => value !== null && Number.isFinite(value)
+    );
+    if (elevationSource.length === 0 || valid.length < 2) return null;
+
+    const min = Math.min(...valid);
+    const max = Math.max(...valid);
+    const span = Math.max(1, max - min);
+    const padding = 6;
+    const routePath = elevationProfile
+      .map((value, index) => {
+        if (value === null || !Number.isFinite(value)) return null;
+        const x =
+          padding +
+          (index / Math.max(1, elevationProfile.length - 1)) *
+            (MAP_WIDTH - padding * 2);
+        const y =
+          PROFILE_HEIGHT -
+          padding -
+          ((value - min) / span) * (PROFILE_HEIGHT - padding * 2);
+        return { x, y };
+      })
+      .reduce<{ path: string; penUp: boolean }>(
+        (state, point) => {
+          if (!point) return { ...state, penUp: true };
+          return {
+            path: `${state.path}${state.penUp ? "M" : "L"}${point.x},${point.y} `,
+            penUp: false,
+          };
+        },
+        { path: "", penUp: true }
+      ).path.trim();
+    const currentIndex = Math.round(
+      Math.max(0, Math.min(1, progress)) *
+        Math.max(0, elevationProfile.length - 1)
+    );
+    const currentValue = elevationProfile[currentIndex];
+    const currentX =
+      padding +
+      (currentIndex / Math.max(1, elevationProfile.length - 1)) *
+        (MAP_WIDTH - padding * 2);
+    const currentY =
+      currentValue === null || currentValue === undefined
+        ? null
+        : PROFILE_HEIGHT -
+          padding -
+          ((currentValue - min) / span) * (PROFILE_HEIGHT - padding * 2);
+
+    return {
+      path: routePath,
+      min,
+      max,
+      range: max - min,
+      first: elevationProfile[0] ?? null,
+      last: elevationProfile[elevationProfile.length - 1] ?? null,
+      currentX,
+      currentY,
+    };
+  }, [elevationProfile, elevationSource, progress]);
 
   if (!map || path.length < 2) return null;
 
@@ -151,6 +217,62 @@ const MissionRouteMiniMap: React.FC<MissionRouteMiniMapProps> = ({
         <span>Rover</span>
         <span>Destination</span>
       </div>
+      {elevation && (
+        <div className="mt-2 border-t border-white/10 pt-2">
+          <div className="mb-1 flex items-center justify-between gap-2 text-[8px] uppercase tracking-[0.12em] text-white/65">
+            <span>Elevation · {elevationSource}</span>
+            <span>{Math.round(elevation.range).toLocaleString()} m range</span>
+          </div>
+          <svg
+            aria-label={`Elevation profile from ${elevationSource}`}
+            className="block h-12 w-full"
+            data-testid="mission-elevation-profile"
+            role="img"
+            viewBox={`0 0 ${MAP_WIDTH} ${PROFILE_HEIGHT}`}
+          >
+            <line
+              x1="6"
+              y1={PROFILE_HEIGHT - 6}
+              x2={MAP_WIDTH - 6}
+              y2={PROFILE_HEIGHT - 6}
+              stroke="rgba(255,255,255,0.18)"
+              strokeWidth="1"
+            />
+            <path
+              d={elevation.path}
+              fill="none"
+              stroke="#78c8ff"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              data-testid="mission-elevation-path"
+            />
+            <line
+              x1={elevation.currentX}
+              y1="4"
+              x2={elevation.currentX}
+              y2={PROFILE_HEIGHT - 4}
+              stroke="#e87524"
+              strokeDasharray="2 2"
+              strokeWidth="1"
+            />
+            {elevation.currentY !== null && (
+              <circle
+                cx={elevation.currentX}
+                cy={elevation.currentY}
+                r="3"
+                fill="#e87524"
+                stroke="#fff"
+                strokeWidth="1"
+              />
+            )}
+          </svg>
+          <div className="mt-0.5 flex justify-between text-[8px] tabular-nums text-white/45">
+            <span>Start {elevation.first === null ? "—" : `${Math.round(elevation.first).toLocaleString()} m`}</span>
+            <span>End {elevation.last === null ? "—" : `${Math.round(elevation.last).toLocaleString()} m`}</span>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

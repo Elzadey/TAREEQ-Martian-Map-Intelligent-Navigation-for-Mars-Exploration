@@ -66,15 +66,22 @@ For a prebuilt ZIP release, `RUN-BUILT-TAREEQ-Windows.bat` serves the included p
 
 1. Open the global 3D view, then switch to **2D MAP** to inspect layers and measure between points.
 2. Open **START MISSION**, choose a start and destination on Mars, and compare A*, Uniform-Cost Search, and Greedy Best-First results.
-3. Select a route and start the mission. The app displays the selected path and minimap and animates the Curiosity model along the route; keyboard and on-screen controls are available.
+3. Select a route and start the mission. Inside the verified Jezero footprint, the app uses the CTX DTM and matching orthophoto, animates the Curiosity model with camera-follow, and shows the route minimap plus an elevation profile sampled from the source DEM. The profile is labelled as areoid-referenced data; keyboard and on-screen controls are available.
 
 The algorithms optimize different objectives: A* combines terrain-weighted route cost with a goal heuristic; UCS expands by accumulated route cost; Greedy prioritizes estimated closeness to the destination and is not guaranteed to find the lowest-cost route. Their distances or search effort may differ, but identical route distances can occur for some endpoint pairs.
+
+For the tested Jezero A* demo, see the [route coverage report](ROUTE-COVERAGE-REPORT.md) and its [92-point raw CTX elevation profile](reports/jezero-astar-route-profile.csv). The diagnostic reports the DTM/orthophoto overlap, route bounds, coverage percentage, and missing segments.
+
+The screenshot below is a local Chromium verification capture of the regional mission scene, not a generated terrain image.
+
+![Verified Jezero CTX mission with Curiosity rover, route overlay, and elevation profile](verification/jezero-astar-mission.png)
 
 ## Data and credits
 
 | Resource | Use | Coverage / resolution |
 |---|---|---|
 | NASA/PDS MGS MOLA MEGDR | Global numeric elevation grid and coarse terrain context | 4 samples per degree; approximately 14.8 km per cell at the equator |
+| NASA/PDS MOLA areoid grid | Vertical-datum conversion for Cesium Mars ellipsoid heights | 4 samples per degree; paired with the bundled MOLA grid |
 | USGS Astrogeology / NASA Mars 2020 CTX Jezero DTM | Regional elevation sampling and mission terrain | 20 m; Jezero footprint only |
 | Matching Jezero CTX orthophoto | Regional surface image | 6 m grayscale; aligned with the CTX DTM |
 | NASA Mars Trek | Optional global imagery layers, including Viking and MOLA products | Requires internet access; image layers are not numeric elevation data |
@@ -91,7 +98,8 @@ python tools/prepare_regional_mars_data.py
 
 - The high-resolution regional dataset covers Jezero only. Outside it, the MOLA fallback is too coarse to identify rocks, wheel-scale obstacles, or safe rover paths.
 - The mission view is a functional prototype, but its surface rendering is not yet at the visual quality of the NASA game-style reference.
-- Cesium uses a documented constant **+4,000 m display-origin translation** for Jezero terrain, rover, and camera so the negative-elevation region can be shown in the close mission view. It is a rendering transform only: source DEM files, sampled scientific elevations, and route-planning costs are not rewritten. Do not interpret the shifted display height as absolute Mars elevation.
+- CTX and MOLA topography are referenced to the MOLA areoid. The app bundles the NASA/PDS MOLA areoid grid and converts rendered elevations to Mars ellipsoid heights for Cesium. During a regional Jezero mission, global image overlays are suspended so the matching CTX orthophoto remains visible, then restored on exit. A computed route-local scene origin, a 20 m route-line display lift, and the camera-projected route highlight are rendering-only; they do not change source DEM values, route costs, or geographic coordinates. The rover is placed 0.25 m above the converted surface to account for its model origin. The elevation profile displays raw areoid-referenced samples, not the rendering offsets.
+- The bundled Jezero pair is the 20 m CTX DTM and matching 6 m orthophoto. Higher-resolution HiRISE products are documented in the dataset audit but are not bundled here; do not imply that they are used by this build.
 - TAREEQ is not safety-certified and does not currently model all mission hazards, including radiation, weather, or rover-scale obstacles.
 
 ## Repository layout
@@ -102,6 +110,9 @@ frontend/public/data/    Bundled MOLA and processed Jezero CTX data
 frontend/public/models/  Curiosity 3D model and attribution
 data/source/jezero/      Original matching CTX source GeoTIFFs
 tools/                    Data preparation utility
+reports/                  Per-waypoint raw CTX elevation profile CSV
+verification/             Chromium screenshot of the tested mission scene
+ROUTE-COVERAGE-REPORT.md  Dataset overlap, route bounds, and coverage results
 ```
 
 For additional Windows, Docker, and hosting instructions, see [`DEPLOYMENT-AR.md`](DEPLOYMENT-AR.md). All project sources and external datasets are credited in the relevant README files.

@@ -97,9 +97,16 @@ jest.mock("cesium", () => {
 });
 
 jest.mock("../features/mars-mapping/services/molaDem", () => ({
+  MOLA_AREOID_LABEL: "NASA MOLA areoid · 4 ppd",
   MOLA_DEM_LABEL: "NASA MOLA MEGDR · 4 ppd",
   loadMolaDem: jest.fn(() =>
-    Promise.resolve({ sampleElevation: jest.fn(() => -1000) })
+    Promise.resolve({
+      sampleElevation: jest.fn(() => -1000),
+      ellipsoidHeightFromAreoidElevation: jest.fn(
+        (_longitude: number, _latitude: number, elevation: number) =>
+          elevation + 327
+      ),
+    })
   ),
   createMolaTerrainProvider: jest.fn(() => ({
     bundledMolaTerrain: true,
@@ -276,6 +283,10 @@ describe("Mars3DViewer", () => {
   it("uses Mars dimensions and keeps wheel, pinch, and NASA imagery controls enabled", async () => {
     molaDemMock.loadMolaDem.mockResolvedValue({
       sampleElevation: jest.fn(() => -1000),
+      ellipsoidHeightFromAreoidElevation: jest.fn(
+        (_longitude: number, _latitude: number, elevation: number) =>
+          elevation + 327
+      ),
     });
     render(<Mars3DViewer />);
     await screen.findByText(/Terrain: NASA MOLA MEGDR/);
@@ -418,6 +429,13 @@ describe("Mars3DViewer", () => {
       coversPath: jest.fn(() => true),
     };
     jezeroDemMock.loadJezeroDem.mockResolvedValue(regionalDem);
+    molaDemMock.loadMolaDem.mockResolvedValue({
+      sampleElevation: jest.fn(() => -1000),
+      ellipsoidHeightFromAreoidElevation: jest.fn(
+        (_longitude: number, _latitude: number, elevation: number) =>
+          elevation + 327
+      ),
+    });
     render(<Mars3DViewer missionMode />);
 
     await act(async () => {
@@ -448,21 +466,25 @@ describe("Mars3DViewer", () => {
     expect(jezeroDemMock.createJezeroTerrainProvider).toHaveBeenCalledWith(
       regionalDem,
       expect.anything(),
-      null,
-      4_000
+      expect.objectContaining({
+        ellipsoidHeightFromAreoidElevation: expect.any(Function),
+      }),
+      2_273
     );
     expect(jezeroDemMock.createJezeroOrthophotoProvider).toHaveBeenCalledWith(
       regionalDem,
       expect.anything()
     );
-    expect(cesiumMock.Cartesian3.fromDegreesArray).toHaveBeenCalled();
+    expect(
+      cesiumMock.Cartesian3.fromDegreesArrayHeights
+    ).toHaveBeenCalled();
     const routeEntity = mockViewer.entities.add.mock.calls
       .map(
         ([entity]) =>
           entity as { id: string; polyline?: { clampToGround: boolean } }
       )
       .find((entity) => entity.id === "tareeq-active-route");
-    expect(routeEntity?.polyline?.clampToGround).toBe(true);
+    expect(routeEntity?.polyline?.clampToGround).toBe(false);
     const roverEntity = mockViewer.entities.add.mock.calls
       .map(
         ([entity]) =>
@@ -480,7 +502,7 @@ describe("Mars3DViewer", () => {
     expect(cesiumMock.Cartesian3.fromDegrees).toHaveBeenCalledWith(
       77.25,
       18.42,
-      1_705,
+      300.25,
       expect.anything()
     );
     const cameraCalls = mockViewer.camera.setView.mock.calls;
@@ -513,6 +535,10 @@ describe("Mars3DViewer", () => {
     const { mockViewer } = cesiumMock.__testState;
     molaDemMock.loadMolaDem.mockResolvedValue({
       sampleElevation: jest.fn(() => -1000),
+      ellipsoidHeightFromAreoidElevation: jest.fn(
+        (_longitude: number, _latitude: number, elevation: number) =>
+          elevation + 327
+      ),
     });
     jezeroDemMock.loadJezeroDem.mockResolvedValue({
       label: jezeroDemMock.JEZERO_DEM_LABEL,

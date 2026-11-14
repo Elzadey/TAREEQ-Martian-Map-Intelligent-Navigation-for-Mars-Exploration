@@ -230,11 +230,30 @@ const DirectionsPanel: React.FC<Props> = ({ planner, onClose }) => {
               Choose a start and destination by clicking the map or entering
               coordinates.
             </p>
+            <button
+              type="button"
+              data-testid="jezero-demo-route"
+              onClick={() => {
+                const demoStart: LonLat = [77.35, 18.5];
+                const demoEnd: LonLat = [77.39, 18.52];
+                named.current = { start: demoStart, end: demoEnd };
+                setStartText("Jezero delta demo · 18.500°N, 77.350°E");
+                setEndText("Jezero delta demo · 18.520°N, 77.390°E");
+                setStartPoint(demoStart);
+                setEndPoint(demoEnd);
+              }}
+              className="w-full rounded-lg border border-orange-300/25 bg-orange-500/10 px-3 py-2 text-left text-xs font-semibold text-orange-100 transition hover:bg-orange-500/20"
+            >
+              Load Jezero delta-slope CTX transect
+              <span className="mt-1 block text-[10px] font-normal text-white/55">
+                20 m terrain · matching 6 m orthophoto · verified CTX coverage
+              </span>
+            </button>
             <p className="text-xs leading-relaxed text-white/40">
-              MOLA hillshade is imagery. The bundled NASA MOLA MEGDR supplies
-              numeric elevation by default; a compatible Cesium DEM can
-              optionally override it. The 4 ppd grid resolves broad terrain, not
-              rover-scale hazards.
+              In Jezero, routes use the local 20 m CTX DTM and the mission view
+              drapes its matching 6 m orthophoto. Elsewhere, bundled MOLA
+              elevation is global context only and cannot resolve rover-scale
+              hazards.
             </p>
           </div>
         )}

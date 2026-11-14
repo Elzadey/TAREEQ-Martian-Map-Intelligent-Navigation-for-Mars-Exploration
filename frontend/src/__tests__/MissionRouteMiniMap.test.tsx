@@ -32,6 +32,32 @@ describe("MissionRouteMiniMap", () => {
     );
   });
 
+  it("plots raw source elevations and marks the rover position", () => {
+    render(
+      <MissionRouteMiniMap
+        path={[
+          [77.35, 18.5],
+          [77.39, 18.52],
+        ]}
+        current={[77.37, 18.51]}
+        progress={0.5}
+        elevationProfile={[-2198.94, -2300, -2488.06]}
+        elevationSource="CTX DTM · areoid"
+      />
+    );
+
+    expect(
+      screen.getByRole("img", { name: "Elevation profile from CTX DTM · areoid" })
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("mission-elevation-path")).toHaveAttribute(
+      "d",
+      expect.stringContaining("L")
+    );
+    expect(screen.getByText("289 m range")).toBeInTheDocument();
+    expect(screen.getByText("Start -2,199 m")).toBeInTheDocument();
+    expect(screen.getByText("End -2,488 m")).toBeInTheDocument();
+  });
+
   it("unwraps a route crossing the Mars dateline along the short arc", () => {
     render(
       <MissionRouteMiniMap
