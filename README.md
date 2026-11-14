@@ -4,6 +4,8 @@ TAREEQ is a Mars-mapping and route-planning prototype for NASA Space Apps Challe
 
 For routes wholly inside the verified Jezero data footprint, the planner and mission view can use a matching **20 m CTX digital terrain model** and **6 m grayscale CTX orthophoto**. Outside Jezero, the app falls back to the much coarser global MOLA grid and warns that it is not suitable for rover-scale hazards. The mission view displays the selected route, a moving Curiosity 3D model, camera-follow behavior, and a route minimap. It is a demonstration prototype, not a certified rover-navigation or hazard-avoidance system.
 
+**NASA Space Apps team profile:** [TAREEQ](https://www.spaceappschallenge.org/2026/find-a-team/tareeq/)
+
 ## Run the project from GitHub
 
 ### Requirements
@@ -76,6 +78,54 @@ The screenshot below is a local Chromium verification capture of the regional mi
 
 ![Verified Jezero CTX mission with Curiosity rover, route overlay, and elevation profile](verification/jezero-astar-mission.png)
 
+<details>
+<summary>Additional TAREEQ screenshots and NASA team profile</summary>
+
+The following team-provided screenshots document the global map, measurement tools, layer controls, and route-planning interface. The route-comparison screenshots are intermediate UI captures; the verified Jezero mission scene above and the coverage report describe the current release state.
+
+### Global 3D and 2D views
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/mars-global-3d-overview.png" alt="Global Mars 3D overview" width="100%"></td>
+    <td width="33%"><img src="docs/screenshots/mars-global-3d-layers.png" alt="Global Mars 3D view with map layers" width="100%"></td>
+    <td width="33%"><img src="docs/screenshots/mars-globe-view.png" alt="Mars globe view" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/mars-global-2d-view.png" alt="Global Mars 2D map" width="100%"></td>
+    <td width="33%"><img src="docs/screenshots/mars-distance-measurement.png" alt="Mars map distance measurement" width="100%"></td>
+    <td width="33%"><img src="docs/screenshots/mars-distance-tool-active.png" alt="Distance measurement tool active on the map" width="100%"></td>
+  </tr>
+</table>
+
+### Map layers and controls
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/layer-selector-viking-mola-themis.png" alt="Viking, MOLA, and THEMIS layer controls" width="100%"></td>
+    <td width="33%"><img src="docs/screenshots/layer-selector-ctx-hirise.png" alt="CTX and HiRISE layer controls" width="100%"></td>
+    <td width="33%"><img src="docs/screenshots/map-settings-controls.png" alt="Map settings and measurement controls" width="100%"></td>
+  </tr>
+</table>
+
+### Route-planning interface
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/screenshots/route-planning-astar.png" alt="A-star route planning screenshot" width="100%"></td>
+    <td width="33%"><img src="docs/screenshots/route-planning-ucs.png" alt="Uniform-cost route planning screenshot" width="100%"></td>
+    <td width="33%"><img src="docs/screenshots/route-planning-greedy.png" alt="Greedy best-first route planning screenshot" width="100%"></td>
+  </tr>
+</table>
+
+### NASA Space Apps team page
+
+[Open TAREEQ's team profile on NASA Space Apps Challenge 2026](https://www.spaceappschallenge.org/2026/find-a-team/tareeq/).
+
+![TAREEQ team profile on NASA Space Apps Challenge](docs/screenshots/nasa-space-apps-team-profile.png)
+
+</details>
+
 ## Data and credits
 
 | Resource | Use | Coverage / resolution |
@@ -109,6 +159,7 @@ frontend/                React + TypeScript application
 frontend/public/data/    Bundled MOLA and processed Jezero CTX data
 frontend/public/models/  Curiosity 3D model and attribution
 data/source/jezero/      Original matching CTX source GeoTIFFs
+docs/screenshots/        Team-provided product and NASA team-page screenshots
 tools/                    Data preparation utility
 reports/                  Per-waypoint raw CTX elevation profile CSV
 verification/             Chromium screenshot of the tested mission scene
