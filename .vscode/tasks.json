@@ -1,0 +1,121 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "setup-env",
+      "type": "shell",
+      "command": "python",
+      "args": ["-m", "venv", "venv"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "install-deps",
+      "type": "shell",
+      "command": "${workspaceFolder}/venv/bin/pip",
+      "args": ["install", "-r", "requirements.txt"],
+      "group": "build",
+      "dependsOn": "setup-env"
+    },
+    {
+      "label": "run-tests",
+      "type": "shell",
+      "command": "${workspaceFolder}/venv/bin/python",
+      "args": ["-m", "pytest", "tests/"],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "format-code",
+      "type": "shell",
+      "command": "${workspaceFolder}/venv/bin/black",
+      "args": ["src/", "tests/"],
+      "group": "build"
+    },
+    {
+      "label": "quick-test",
+      "type": "shell",
+      "command": "python3",
+      "args": ["quick_test_runner.py"],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "comprehensive-test",
+      "type": "shell",
+      "command": "python3",
+      "args": ["comprehensive_test_suite.py", "--open-report"],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "integration-test",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tests/test_integration.py"],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "make-script-executable",
+      "type": "shell",
+      "command": "chmod",
+      "args": ["+x", "migrate_docker_cleanup.sh"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "run-docker-migration",
+      "type": "shell",
+      "command": "./migrate_docker_cleanup.sh",
+      "group": "build",
+      "dependsOn": "make-script-executable",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "start-frontend",
+      "type": "shell",
+      "command": "npm",
+      "args": ["start"],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "group": "build",
+      "isBackground": true,
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

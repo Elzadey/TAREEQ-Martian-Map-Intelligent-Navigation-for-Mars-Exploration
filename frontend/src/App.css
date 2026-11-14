@@ -1,0 +1,207 @@
+/* App.css - Main application styles */
+
+.App {
+  text-align: center;
+  min-height: 100vh;
+  background-color: #0f0f23;
+  color: white;
+}
+
+/* Global Mars theme styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #0f0f23;
+  color: #e5e7eb;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Mars theme colors */
+:root {
+  --mars-red: #c44536;
+  --mars-orange: #d16855;
+  --mars-dark-red: #8f3026;
+  --space-blue: #2196f3;
+  --space-dark: #0f0f23;
+  --space-gray: #1e1e2e;
+  --text-primary: #ffffff;
+  --text-secondary: #b0b0b0;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--space-gray);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--mars-red);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--mars-orange);
+}
+
+/* Loading animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Mars Scientific GUI container */
+.mars-scientific-gui {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .App {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .App {
+    font-size: 12px;
+  }
+}
+
+.mars-intro {
+  isolation: isolate;
+  animation: mars-intro-exit 3.2s ease-in-out forwards;
+}
+
+.mars-intro-orbit {
+  position: absolute;
+  width: min(52vw, 30rem);
+  aspect-ratio: 1;
+  border: 1px solid rgba(232, 117, 36, 0.12);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(196, 74, 30, 0.15), transparent 34%),
+    radial-gradient(circle at 50% 50%, rgba(8, 9, 11, 0) 58%, rgba(204, 85, 0, 0.06) 59%, transparent 60%);
+  box-shadow: 0 0 90px rgba(179, 65, 24, 0.12), inset 0 0 70px rgba(179, 65, 24, 0.05);
+  animation: mars-orbit-reveal 3.2s ease-in-out both;
+  pointer-events: none;
+}
+
+.mars-intro-orbit::before,
+.mars-intro-orbit::after {
+  position: absolute;
+  inset: 12%;
+  border: 1px solid rgba(232, 117, 36, 0.13);
+  border-radius: 50%;
+  content: '';
+}
+
+.mars-intro-orbit::before {
+  transform: rotate(-24deg) scaleX(0.42);
+}
+
+.mars-intro-orbit::after {
+  transform: rotate(28deg) scaleX(0.68);
+}
+
+.mars-intro-copy,
+.mars-intro-title {
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 0 24px rgba(232, 117, 36, 0.2);
+}
+
+.mars-intro-title {
+  animation: mars-title-reveal 1.5s ease both;
+}
+
+.mars-intro-copy {
+  animation: mars-copy-reveal 1.7s ease both;
+}
+
+@keyframes mars-copy-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  22%,
+  78% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes mars-title-reveal {
+  0% {
+    opacity: 0;
+    letter-spacing: 0.6em;
+    transform: translateY(8px);
+  }
+  30%,
+  70% {
+    opacity: 1;
+    letter-spacing: 0.42em;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    letter-spacing: 0.5em;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes mars-orbit-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) rotate(-8deg);
+  }
+  22%,
+  74% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.05) rotate(8deg);
+  }
+}
+
+@keyframes mars-intro-exit {
+  0%,
+  72% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}

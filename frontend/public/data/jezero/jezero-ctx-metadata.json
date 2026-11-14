@@ -1,0 +1,94 @@
+{
+  "region": "Jezero Crater, Mars",
+  "source": "USGS Astrogeology / NASA Mars 2020 Terrain Relative Navigation CTX products",
+  "attribution": "JPL-Caltech / NASA / USGS Astrogeology Science Center",
+  "sourceCrs": "ESRI:103885",
+  "projection": "Equirectangular (spherical Mars; positive-east longitude)",
+  "proj4": "+proj=eqc +lat_ts=0 +lat_0=0 +lon_0=0 +x_0=0 +y_0=0 +R=3396190 +units=m +no_defs=True",
+  "marsRadiusMeters": 3396190.0,
+  "coordinateConvention": "planetocentric latitude, positive-east longitude; degrees in app",
+  "elevationReference": "MOLA topography / delta geoid as specified by the CTX DTM product",
+  "heightUnits": "metres",
+  "dem": {
+    "sourceFile": "JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_Eqc_latTs0_lon0.tif",
+    "width": 1596,
+    "height": 1512,
+    "bands": 1,
+    "dataType": "float32",
+    "resolutionMeters": [
+      20.0,
+      20.0
+    ],
+    "transform": [
+      20.0,
+      0.0,
+      4573663.250853,
+      0.0,
+      -20.0,
+      1109693.140188
+    ],
+    "boundsProjectedMeters": {
+      "west": 4573663.250853,
+      "south": 1079453.140188,
+      "east": 4605583.250853,
+      "north": 1109693.140188
+    },
+    "boundsDegrees": {
+      "west": 77.16046545922367,
+      "south": 18.211027390963398,
+      "east": 77.69897516629472,
+      "north": 18.721194481872804
+    },
+    "noData": -3.4028226550889045e+38,
+    "browserFile": "jezero-ctx-dem-f32le.bin",
+    "byteOrder": "little-endian",
+    "validElevationMinMeters": -2710.69580078125,
+    "validElevationMaxMeters": -1515.53955078125
+  },
+  "orthophoto": {
+    "sourceFile": "JEZ_ctx_B_soc_008_orthoMosaic_6m_Eqc_latTs0_lon0.tif",
+    "width": 5322,
+    "height": 5040,
+    "bands": 1,
+    "dataType": "uint8",
+    "resolutionMeters": [
+      6.0,
+      6.0
+    ],
+    "transform": [
+      6.0,
+      0.0,
+      4573663.250853,
+      0.0,
+      -6.0,
+      1109693.140188
+    ],
+    "boundsProjectedMeters": {
+      "west": 4573663.250853,
+      "south": 1079453.140188,
+      "east": 4605595.250853,
+      "north": 1109693.140188
+    },
+    "boundsDegrees": {
+      "west": 77.16046545922367,
+      "south": 18.211027390963398,
+      "east": 77.69917761355299,
+      "north": 18.721194481872804
+    },
+    "noData": 0.0,
+    "browserFile": "jezero-ctx-orthophoto.png",
+    "encoding": "source 8-bit grayscale copied to RGB; source NoData pixels have alpha 0"
+  },
+  "verifiedOverlapPercentOfDem": 100.0,
+  "verifiedIntersectionProjectedMeters": {
+    "west": 4573663.250853,
+    "south": 1079453.140188,
+    "east": 4605583.250853,
+    "north": 1109693.140188
+  },
+  "sources": {
+    "dem": "https://planetarymaps.usgs.gov/mosaic/mars2020_trn/CTX/JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_Eqc_latTs0_lon0.tif",
+    "orthophoto": "https://planetarymaps.usgs.gov/mosaic/mars2020_trn/CTX/JEZ_ctx_B_soc_008_orthoMosaic_6m_Eqc_latTs0_lon0.tif",
+    "productPage": "https://astrogeology.usgs.gov/search/map/mars_2020_terrain_relative_navigation_ctx_dtm_mosaic"
+  }
+}

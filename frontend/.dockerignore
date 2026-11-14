@@ -1,0 +1,9 @@
+node_modules
+build
+coverage
+public/cesium
+.env
+.env.*
+npm-debug.log*
+cypress/videos
+cypress/screenshots
