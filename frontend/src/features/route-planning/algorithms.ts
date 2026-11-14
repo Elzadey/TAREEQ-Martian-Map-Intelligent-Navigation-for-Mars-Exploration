@@ -364,6 +364,7 @@ function greedyBestFirst(
     closed[cur] = 1;
     expanded++;
     if (cur === goal) return { cells: buildPath(came, cur), expanded };
+    // eslint-disable-next-line no-loop-func -- forEachNeighbor invokes the visitor synchronously.
     forEachNeighbor(g, cur, cfg.maxSlope, (nb) => {
       if (seen[nb]) return;
       seen[nb] = 1;
@@ -395,6 +396,7 @@ function uniformCostSearch(
     closed[cur] = 1;
     expanded++;
     if (cur === goal) return { cells: buildPath(came, cur), expanded };
+    // eslint-disable-next-line no-loop-func -- forEachNeighbor invokes the visitor synchronously.
     forEachNeighbor(g, cur, cfg.maxSlope, (nb, dist, slope) => {
       if (closed[nb]) return;
       const ng = gScore[cur] + edgeCost(dist, slope, cfg.slopeScale);
@@ -432,6 +434,7 @@ function aStar(
     closed[cur] = 1;
     expanded++;
     if (cur === goal) return { cells: buildPath(came, cur), expanded };
+    // eslint-disable-next-line no-loop-func -- forEachNeighbor invokes the visitor synchronously.
     forEachNeighbor(g, cur, cfg.maxSlope, (nb, dist, slope) => {
       if (closed[nb]) return;
       const ng = gScore[cur] + edgeCost(dist, slope, cfg.slopeScale);
